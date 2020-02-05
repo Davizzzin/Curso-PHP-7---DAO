@@ -4,10 +4,19 @@ require_once("config.php");
 
 class usuario
 {
+	private $sql;
+
+
+
 	private $idusuario;
 	private $deslogin;
 	private $dessenha;
 	private $dtcadastro;
+
+	public function __construct()
+	{
+		$this->sql = new Sql();
+	}
 
 	//Setters
 	private function setIdusuario($value)
@@ -54,57 +63,101 @@ class usuario
 	//pega linha da tabela utilizando um id especificado 
 	public function loadById($id)
 	{
-		$sql = new Sql();
 		$select = "SELECT * FROM tb_usuarios WHERE idusuario = :ID";
 
-		$results = $sql->select($select, array(":ID"=>$id));
+		$results = $this->sql->select($select, array(":ID"=>$id));
 
 		if(count($results) > 0)
 		{
-			$row = $results[0];
-
-			$this->setIdusuario($id);
-			$this->setDeslogin($row['deslogin']);
-			$this->setDessenha($row['dessenha']);
-			$this->setDtcadastro(new DateTime($row['dtcadastro']));
+			$this->setData($results[0]);
 		}
 	}
 
 	public static function listAll()
 	{
-		$sql = new Sql();
+		$sqlStatic = new Sql();
 		$select = "SELECT * FROM tb_usuarios ORDER BY deslogin";
-		return $sql->select($select);
+		return $sqlStatic->select($select);
 	}
 
 	public static function search($login)
 	{
-		$sql = new Sql();
+		$sqlStatic = new Sql();
 		$select = "SELECT * FROM tb_usuarios WHERE deslogin LIKE :SEARCH ORDER BY deslogin";
-		return $sql->select($select, array(":SEARCH"=>"%".$login."%"));
+		return $sqlStatic->select($select, array(":SEARCH"=>"%".$login."%"));
 	}
 
 	public function login($login,$password)
 	{
-		$sql = new Sql();
 		$select = "SELECT * FROM tb_usuarios WHERE deslogin = :LOGIN AND dessenha = :PASSWORD";
 
-		$results = $sql->select($select, array(":LOGIN"=>$login,
+		$results = $this->sql->select($select, array(":LOGIN"=>$login,
 			":PASSWORD"=>$password));
 
 		if(count($results) > 0)
 		{
-			$row = $results[0];
-
-			$this->setIdusuario($row['idusuario']);
-			$this->setDeslogin($row['deslogin']);
-			$this->setDessenha($row['dessenha']);
-			$this->setDtcadastro(new DateTime($row['dtcadastro']));
+			$this->setData($results[0]);		
 		}
 		else 
 		{
 			throw new Exception("login e/ou senha inválidos.");
 		}
+	}
+
+	public function insert() : int
+	{
+		$select = "SELECT idusuario FROM tb_usuarios WHERE deslogin = :LOGIN";
+		$result = $this->sql->select($select, array(":LOGIN"=>$login));
+
+		if($result==NULL)
+		{
+			$inserir = "INSERT INTO tb_usuarios (deslogin, dessenha) VALUES (:LOGIN, :PASSWORD)";
+
+			$linhasAfetadas = $sql->query($inserir, array(':LOGIN'=>$this->getDeslogin(),
+				':PASSWORD'=>$this->getDessenha()), true);
+
+			return $linhasAfetadas;
+		}
+		else 
+		{
+			throw new Exception("Login informado já cadastrado.");
+		}
+	}
+
+	public function update($login,$password)
+	{
+		$this->setDeslogin($login);
+		$this->setDessenha($password);
+
+		$update="UPDATE tb_usuarios SET deslogin = :LOGIN , dessenha = :PASSWORD WHERE idusuario = :ID";
+
+		$linhasAfetadas = $this->sql->query($update, array(':LOGIN'=>$this->getDeslogin(), 
+			':PASSWORD'=> $this->getDessenha(),
+			':ID'=>$this->getIdusuario()),true);
+
+		return $linhasAfetadas;
+	}
+
+	public function delete()
+	{
+		$delete = "DELETE FROM tb_usuarios WHERE idusuario = :ID";
+		$linhasAfetadas = $this->sql->query($delete, array(":ID"=>$this->getIdusuario()),true);
+
+		$this->setIdusuario(0);
+		$this->setDeslogin("");
+		$this->setDessenha("");
+		$this->setDtcadastro(NULL);
+
+		return $linhasAfetadas;
+	}
+
+
+	public function setData($data)
+	{
+			$this->setIdusuario($data['idusuario']);
+			$this->setDeslogin($data['deslogin']);
+			$this->setDessenha($data['dessenha']);
+			$this->setDtcadastro(new DateTime($data['dtcadastro']));
 	}
 
 	public function __toString()
@@ -116,8 +169,6 @@ class usuario
 			"dtcadastro"=>$this->getDtcadastro()
 		));	
 	}
-
-
 
 }
 
